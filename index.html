@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>班费管理智慧系统</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #eef2fa 0%, #dee6f2 100%);
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .glass-container {
+            max-width: 1250px;  /* ← 这是控制整个系统宽度的关键属性，希沃调整到1450 */
+            margin: 0 0 0 30px;  /* 上右下左：0 0 0 0px */
+            background: rgba(255,255,255,0.97);
+            border-radius: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            overflow: hidden;
+        }
+
+        .hero {
+            background: linear-gradient(112deg, #0b2b44, #155e8a);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            color: white;
+        }
+        .hero h1 { font-size: 1.9rem; display: flex; align-items: center; gap: 12px; }
+        .hero p { opacity: 0.8; margin-top: 6px; font-size: 0.85rem; }
+        .date-chip { background: rgba(255,255,255,0.2); padding: 8px 20px; border-radius: 60px; font-weight: 500; }
+
+        .content { padding: 28px 32px; }
+
+        .permission-bar {
+            background: #f1f5f9;
+            border-radius: 40px;
+            padding: 8px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            border: 1px solid #cbd5e6;
+        }
+        .permission-status {
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .lock-icon { font-size: 1.2rem; }
+        .unlock-icon { font-size: 1.2rem; color: #16a34a; }
+        .admin-btn-sm {
+            background: #155e8a;
+            border: none;
+            color: white;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .admin-btn-sm:hover { background: #0e3f5e; transform: translateY(-1px); }
+        .admin-btn-outline {
+            background: white;
+            border: 1px solid #155e8a;
+            color: #155e8a;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .assistant-btn-outline {
+            background: #f0f9ff;
+            border: 1px solid #14b8a6;
+            color: #0f766e;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .assistant-btn-outline:hover {
+            background: #ccfbf1;
+            transform: translateY(-1px);
+            border-color: #0d9488;
+        }
+
+        .toolbar-flex {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 28px;
+            background: #f8fafd;
+            padding: 14px 20px;
+            border-radius: 48px;
+            align-items: center;
+        }
+        .btn {
+            background: white;
+            border: 1px solid #cbd5e6;
+            padding: 8px 22px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-primary { background: #155e8a; border-color: #155e8a; color: white; }
+        .btn-primary:hover { background: #0e3f5e; transform: translateY(-2px); }
+        .btn-danger { background: #fff2f0; border-color: #f3b3a8; color: #b91c1c; }
+        .btn-danger:hover { background: #fee2e2; }
+        .btn-success { background: #e6f7ec; border-color: #86efac; color: #166534; }
+        .btn-info { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+        .btn-warning { background: #fef3c7; border-color: #fbbf24; color: #92400e; }
+        .import-label {
+            background: #155e8a;
+            color: white;
+            padding: 8px 22px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: inline-block;
+        }
+        .import-label input { display: none; }
+        .btn-disabled, .btn-disabled:hover {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(0.05);
+            transform: none;
+        }
+
+        /* 左右布局：左侧表单区域，右侧统计数据纵向排列 */
+        .main-layout {
+            display: flex;
+            gap: 28px;
+            margin-bottom: 0px;
+            flex-wrap: wrap;
+        }
+        .left-forms {
+            flex: 2;
+            min-width: 260px;
+        }
+        .right-stats {
+            flex: 0.3;
+            min-width: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 24px;
+            padding: 16px 12px;
+            text-align: center;
+            border: 1px solid #eef2f9;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+            transition: transform 0.1s ease;
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.05); }
+        .stat-label { 
+    font-size: 1rem;  /* 班级人数等文字大小 */
+    text-transform: uppercase; 
+    color: #475569; 
+    font-weight: 600; 
+    letter-spacing: 0.3px; 
+}
+.stat-number { 
+    font-size: 1.8rem;  /* 收入等数字大小 */
+    font-weight: 800; 
+    color: #0c4a6e; 
+    margin-top: 4px; 
+}
+
+        /* 双面板布局：左右两个大面板，内部包含表单 + 流水明细 */
+        .dual-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 28px;
+            margin-bottom: 0;
+        }
+        .panel {
+            background: #ffffffdd;
+            border-radius: 28px;
+            padding: 24px;
+            border: 1px solid #e9f0fc;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel h3 { font-size: 1.4rem; margin-bottom: 20px; font-weight: 600; }
+        .form-group { margin-bottom: 18px; }
+        label { font-weight: 600; font-size: 0.8rem; color: #334155; display: block; margin-bottom: 6px; }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 20px;
+            border: 1.5px solid #e2e8f0;
+            font-size: 0.9rem;
+            background: white;
+            font-family: inherit;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 46px;
+            max-height: 150px;
+            line-height: 1.4;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group textarea {
+            height: 46px;
+        }
+        .form-group textarea {
+            min-height: 46px;
+            height: 46px;
+        }
+        .student-select-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .student-select-row select {
+            flex: 1;
+        }
+        .inline-delete-btn {
+            background: #fff2f0;
+            border: 1px solid #f3b3a8;
+            color: #b91c1c;
+            padding: 0 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            height: 46px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .inline-delete-btn:hover {
+            background: #fee2e2;
+            transform: translateY(-1px);
+            border-color: #f3a8a0;
+        }
+
+        .submit-btn { width: 100%; padding: 12px; border-radius: 40px; font-weight: bold; border: none; background: #155e8a; color: white; cursor: pointer; margin-bottom: 24px; }
+        .expense-btn { background: #b91c1c; }
+
+        /* 流水列表样式 - 置于面板内部下方 */
+        .panel-log-section {
+            margin-top: 8px;
+            border-top: 1px solid #e2edff;
+            padding-top: 18px;
+        }
+        .panel-log-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .log-list-compact {
+            max-height: 260px;
+            overflow-y: auto;
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 6px 10px;
+        }
+        .income-log-item, .expense-log-item {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .income-log-item:last-child, .expense-log-item:last-child { border-bottom: none; }
+        .log-detail {
+            flex: 1;
+            color: #1e293b;
+            font-family: monospace;
+        }
+        .log-amount {
+            font-weight: 700;
+            color: #0f7b3a;
+        }
+        .expense-log-item .log-amount { color: #b91c1c; }
+        .log-time {
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+        .delete-expense-btn {
+            background: none;
+            border: none;
+            color: #b91c1c;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 4px 8px;
+            border-radius: 40px;
+            transition: 0.2s;
+            opacity: 0.7;
+        }
+        .delete-expense-btn:hover {
+            background: rgba(185,28,28,0.1);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        .empty-log {
+            text-align: center;
+            color: #94a3b8;
+            padding: 24px;
+            font-size: 0.8rem;
+        }
+
+        /* 弹窗样式保持不变 */
+        .modern-student-delete-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3100;
+            animation: fadeIn 0.2s ease;
+        }
+        .student-delete-card {
+            background: white;
+            width: 90%;
+            max-width: 460px;
+            border-radius: 2rem;
+            padding: 28px 26px;
+            box-shadow: 0 30px 45px -15px rgba(0,0,0,0.35);
+            text-align: center;
+            animation: slideUp 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            border-top: 6px solid #b91c1c;
+        }
+        .student-delete-card h4 { font-size: 1.7rem; font-weight: 800; color: #b91c1c; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .student-delete-card .student-info { background: #f8fafc; padding: 14px; border-radius: 24px; margin: 18px 0; font-weight: 600; color: #0c4a6e; border: 1px solid #e2edff; }
+        .student-delete-card .warning-note { background: #fff6e5; padding: 10px; border-radius: 20px; font-size: 0.8rem; color: #b45309; margin: 16px 0; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .delete-student-actions { display: flex; gap: 14px; justify-content: center; margin-top: 20px; }
+        .delete-student-actions button { border: none; padding: 10px 28px; border-radius: 60px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+        .delete-student-cancel { background: #e2e8f0; color: #1e293b; }
+        .delete-student-cancel:hover { background: #cbd5e1; transform: translateY(-1px);}
+        .delete-student-confirm { background: #b91c1c; color: white; box-shadow: 0 4px 12px rgba(185,28,28,0.25); }
+        .delete-student-confirm:hover { background: #991b1b; transform: translateY(-2px);}
+        
+        .modern-delete-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            animation: fadeIn 0.2s ease;
+        }
+        .delete-card {
+            background: white;
+            width: 90%;
+            max-width: 420px;
+            border-radius: 2rem;
+            padding: 28px 24px;
+            box-shadow: 0 30px 45px -20px rgba(0,0,0,0.4);
+            text-align: center;
+            animation: slideUp 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+        .delete-card h4 { font-size: 1.6rem; font-weight: 700; color: #b91c1c; margin-bottom: 12px; }
+        .delete-card .expense-detail { background: #fef2f2; padding: 12px; border-radius: 20px; font-family: monospace; margin: 8px 0 20px; font-weight: 500; }
+        .delete-actions { display: flex; gap: 14px; justify-content: center; }
+        .delete-actions button { border: none; padding: 10px 22px; border-radius: 40px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .delete-cancel-btn { background: #e2e8f0; color: #1e293b; }
+        .delete-cancel-btn:hover { background: #cbd5e1; transform: translateY(-1px);}
+        .delete-confirm-btn { background: #b91c1c; color: white; box-shadow: 0 4px 8px rgba(185,28,28,0.2); }
+        .delete-confirm-btn:hover { background: #991b1b; transform: translateY(-2px);}
+        
+        .modern-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .modal-card-modern {
+            background: white;
+            width: 90%;
+            max-width: 520px;
+            border-radius: 1.5rem;
+            padding: 20px 22px;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.3);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-add-student { max-height: 300px !important; min-height: auto !important; }
+        .modal-graduate { max-height: 35vh !important; min-height: auto !important; }
+        .flex-btns { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+        .graduate-btns { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; }
+        .backup-tip {
+            font-size: 0.8rem;
+            color: #475569;
+            margin-bottom: 24px;
+            padding: 8px 16px;
+            background: #f0f9ff;
+            border-radius: 12px;
+            border-left: 3px solid #155e8a;
+        }
+        .log-list-ultra {
+            max-height: 70vh;
+            min-height: 630px;
+            overflow-y: auto;
+            background: #f8fafc;
+            border-radius: 10px;
+            margin-top: 8px;
+            font-size: 0.78rem;
+        }
+        .log-item-ultra {
+            padding: 4px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            line-height: 1.4;
+        }
+        .log-version-ultra {
+            font-weight: 700;
+            color: #155e8a;
+            display: block;
+            margin-bottom: 2px;
+            font-family: monospace;
+            font-size: 0.9rem;  /* 版本日志版本号字体大小 */
+        }
+        .log-desc-ultra {
+            display: block;
+            color: #334155;
+            word-break: break-word;
+            white-space: pre-wrap;
+            line-height: 1.4;
+            font-size: 0.9rem;  /* 版本日志详情字体大小 */
+        }
+        .version-edit-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .version-edit-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .version-edit-item label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #475569;
+        }
+        .version-edit-item input {
+            padding: 8px 10px;
+            border-radius: 12px;
+            border: 1.5px solid #e2e8f0;
+            font-size: 0.85rem;
+        }
+        .log-detail-edit {
+            width: 100%;
+            min-height: 480px;
+            max-height: 500px;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1.5px solid #e2e8f0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            resize: vertical;
+            background: #f8fafc;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .version-badge {
+            position: fixed;
+            bottom: 22px;
+            right: 22px;
+            background: #0f172ad9;
+            backdrop-filter: blur(8px);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 60px;
+            font-family: monospace;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.2);
+        }
+        .version-badge:hover { background: #020617; transform: scale(1.02); }
+        
+        .log-entry-compact {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.85rem;     /* 操作日志教师/助手后的文字大小 */
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .log-left {
+            flex: 1;
+            min-width: 120px;
+        }
+        .log-operator {     /* 操作身份标签 */
+            font-weight: 700;
+            color: #0f766e;
+            display: inline-block;
+            background: #e0f2fe;
+            padding: 0 6px;
+            border-radius: 16px;
+            font-size: 0.85rem;     /* 操作身份标签文字大小 */
+            margin-right: 8px;
+        }
+        .log-action {     /* 操作行为 */
+            font-weight: 500;
+            color: #1e293b;
+            word-break: break-word;
+            font-size: 0.85rem;     /* 操作行为文字大小 */
+        }
+        .log-time-small {     /* 操作时间 */
+            font-family: monospace;
+            font-size: 0.85rem;     /* 操作时间文字大小 */
+            color: #000000;
+            white-space: nowrap;
+        }
+        .log-detail-compact {     /* 下方操作详情补充 */
+            font-size: 0.75rem;     /* 下方操作详情补充文字大小 */
+            color: #475569;
+            margin-top: 4px;
+            padding-left: 8px;
+            border-left: 2px solid #cbd5e1;
+        }
+/* ========== 右侧固定日历样式 ========== */
+    
+    /* 让主界面向左移动，给日历腾出位置 */
+    .glass-container {
+        position: relative;
+    }
+    
+    /* 日历窗口 - 固定在右侧 */
+    .calendar-container {
+        position: fixed;
+        top: 30px;
+        right: 20px;
+        width: 320px;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 24px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        z-index: 100;
+        border: 1px solid #e2e8f0;
+        backdrop-filter: blur(10px);
+        padding: 20px;
+        display: block;
+    }
+    
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .calendar-header h3 {
+        font-size: 1.2rem;
+        color: #0c4a6e;
+        font-weight: 600;
+    }
+    
+    .calendar-nav-btn {
+        background: #f1f5f9;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #475569;
+        transition: 0.2s;
+    }
+    
+    .calendar-nav-btn:hover {
+        background: #e2e8f0;
+        transform: scale(1.1);
+    }
+    
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+        margin-bottom: 15px;
+    }
+    
+    .calendar-weekday {
+        text-align: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #64748b;
+        padding: 8px 0;
+    }
+    
+    .calendar-day {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        position: relative;
+        transition: 0.2s;
+        background: white;
+        border: 1px solid #f1f5f9;
+    }
+    
+    .calendar-day:hover {
+        background: #f8fafc;
+        transform: scale(1.05);
+    }
+    
+    .calendar-day.other-month {
+        color: #cbd5e1;
+        background: #f8fafc;
+    }
+    
+    .calendar-day.has-income {
+        background: linear-gradient(to top, #d1fae5 0%, #d1fae5 100%);
+        border-color: #86efac;
+    }
+    
+    .calendar-day.has-expense {
+        background: linear-gradient(to top, #fee2e2 0%, #fee2e2 100%);
+        border-color: #fca5a5;
+    }
+    
+    .calendar-day.has-both {
+        background: linear-gradient(to top, #d1fae5 0%, #d1fae5 50%, #fee2e2 50%, #fee2e2 100%);
+        border-color: #86efac;
+    }
+    
+    .calendar-day.today {
+        border: 2px solid #155e8a;
+        font-weight: 700;
+    }
+    
+    .calendar-indicator {
+        position: absolute;
+        bottom: 2px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+    }
+    
+    .income-indicator {
+        background: #10b981;
+        left: 6px;
+    }
+    
+    .expense-indicator {
+        background: #ef4444;
+        right: 6px;
+    }
+    
+    .calendar-detail-panel {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 15px;
+        margin-top: 10px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .calendar-detail-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .calendar-detail-item {
+        font-size: 0.8rem;
+        padding: 6px 8px;
+        border-radius: 8px;
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .calendar-income-item {
+        background: #f0fdf4;
+        border-left: 3px solid #10b981;
+    }
+    
+    .calendar-expense-item {
+        background: #fef2f2;
+        border-left: 3px solid #ef4444;
+    }
+    
+    .calendar-detail-amount {
+        font-weight: 600;
+    }
+/* ========== 新增：主内容区左移样式 ========== */
+
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 24px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        z-index: 100;
+        border: 1px solid #e2e8f0;
+        backdrop-filter: blur(10px);
+        padding: 20px;
+        display: block;
+        position: fixed; /* 保持固定定位，跟随滚动 */
+        max-height: calc(100vh - 120px); /* 限制高度，防止撑爆页面 */
+        overflow-y: auto; /* 如果内容太多，内部可以滚动 */
+    }
+
+    /* 3. 调整一下日历里的文字大小，防止太挤 */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px; /* 格子之间的间距 */
+        margin-top: 10px;
+    }
+    
+    .calendar-day {
+        text-align: center;
+        padding: 8px 4px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        position: relative;
+    }
+    
+    .calendar-day.income {
+        background-color: #dcfce7; /* 收入绿色背景 */
+        color: #166534;
+    }
+    
+    .calendar-day.expense {
+        background-color: #fee2e2; /* 支出红色背景 */
+        color: #991b1b;
+    }
+    
+    .calendar-day.today {
+        border: 2px solid #0ea5e9;
+    }    
+/* 修改密码弹窗样式 */
+.password-modal-card {
+    background: white;
+    width: 90%;
+    max-width: 420px;
+    border-radius: 1.5rem;
+    padding: 28px 26px;
+    box-shadow: 0 30px 45px -15px rgba(0,0,0,0.35);
+    text-align: left;
+    animation: slideUp 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    border-top: 6px solid #7c3aed;
+}
+
+.password-modal-card h3 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #7c3aed;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.password-modal-card .form-group {
+    margin-bottom: 16px;
+}
+
+.password-modal-card .form-group label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #334155;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.password-modal-card .form-group input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1.5px solid #e2e8f0;
+    font-size: 0.95rem;
+    background: white;
+    font-family: inherit;
+    transition: 0.2s;
+}
+
+.password-modal-card .form-group input:focus {
+    border-color: #7c3aed;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.password-modal-card .flex-btns {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.password-modal-card .btn {
+    background: white;
+    border: 1px solid #cbd5e6;
+    padding: 10px 28px;
+    border-radius: 40px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.password-modal-card .btn-primary {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    color: white;
+}
+
+.password-modal-card .btn-primary:hover {
+    background: #6d28d9;
+    transform: translateY(-2px);
+}
+
+.password-modal-card .btn-danger {
+    background: #b91c1c;
+    border-color: #b91c1c;
+    color: white;
+}
+    </style>
+</head>
+<body>
+<div class="glass-container">
+    <div class="hero">
+        <div><h1>📘 班费管理智慧系统</h1><p>权限安全版 · 教师/助手双权限</p></div>
+        <div class="date-chip" id="globalDateLabel">📅 生成日期: 2026.05.17</div>
+    </div>
+    <div class="content">
+        <div class="permission-bar" id="permissionBar">
+            <div class="permission-status" id="permissionStatus">
+                <span class="lock-icon">🔒</span> <span id="authText">访客模式 · 仅可查看/导出/版本</span>
+            </div>
+            <div>
+                <button class="assistant-btn-outline" id="unlockAssistantBtn">🧑‍🏫 助手登录</button>
+                <button class="admin-btn-outline" id="unlockAdminBtn">👩‍🏫 教师登录</button>
+                <button class="admin-btn-sm" id="lockAdminBtn" style="display:none;">🔒 退出编辑</button>
+                <button class="admin-btn-sm" id="changePasswordBtn" style="display:none; background:#7c3aed;">🔑 修改密码</button>
+            </div>
+        </div>
+        
+        <div class="toolbar-flex">
+            <label class="import-label" id="importStudentLabel">📂 导入学生<input type="file" id="excelUpload" accept=".xlsx,.xls"></label>
+            <button class="btn btn-primary" id="addStudentBtn">➕ 新增学生</button>
+            <button class="btn btn-success" id="oneKeyPayBtn">💰 一键缴费</button>
+            <button class="btn btn-danger" id="graduateSettleBtn">🎓 毕业重置</button>
+            <button class="btn btn-info" id="exportDataBtn">📎 导出备份</button>
+            <button class="btn" id="importExcelBackupBtn">📂 导入备份</button>
+            <button class="btn btn-warning" id="viewActionLogBtn">📋 操作日志</button>
+            <div style="margin-left:auto; font-size:12px; background:#eef3ff; padding:4px 14px; border-radius:20px;">💡 列名: 姓名、学号 | 自动保存</div>
+        </div>
+        
+        <div class="backup-tip">
+            💡 <strong>重要提示</strong>：删除学生时仅移除学生档案，<strong style="color:#b91c1c;">不删除历史收入明细记录</strong>，班级总收入与余额会随之重新计算。<br>
+            🧑‍🎓 <strong>删除学生</strong>：在下方选择学生后点击红色「🗑 删除学生」按钮，弹窗确认。<br>
+            📂 <strong>导入备份</strong>：可直接使用导出的Excel文件上传。<br>
+            💡 <strong>权限说明</strong>：访客模式只能<strong style="color:#b91c1c;">查看流水、导出备份、查看版本信息</strong>。<strong style="color:#b91c1c;">助手</strong>可使用：新增学生、一键缴费、导出备份、导入备份、个人缴费记录、班级支出。<strong style="color:#b91c1c;">教师</strong>拥有全部权限。<br>
+            🔐 <strong>双权限密码</strong>：输入对应密码解锁对应功能。<br>
+            🔏 <strong>日期码保护</strong>：管理员进入版本编辑界面后，如修改日期码会要求输入二次深度解锁密码，每次重新打开编辑弹窗都需要重新验证。
+        </div>
+
+        <!-- 左右布局：左侧表单面板（内嵌流水明细），右侧统计卡片 -->
+        <div class="main-layout">
+            <div class="left-forms">
+                <div class="dual-panels">
+                    <!-- 左侧面板：个人缴费记录 + 收入明细 -->
+                    <div class="panel">
+                        <h3>➕ 个人缴费记录</h3>
+                        <div class="form-group">
+                            <label>选择学生</label>
+                            <div class="student-select-row">
+                                <select id="incomeStudentSelect"><option value="">-- 选择学生 --</option></select>
+                                <button type="button" class="inline-delete-btn" id="deleteStudentBtn">🗑 删除学生</button>
+                            </div>
+                        </div>
+                        <div class="form-group"><label>缴费金额 (¥)</label><input type="number" id="incomeAmount" step="0.01" placeholder="eg: 200.00"></div>
+                        <div class="form-group"><label>缴费时间</label><input type="text" id="incomeTimeReadonly" readonly style="background:#f0f3f9;"></div>
+                        <button class="submit-btn" id="recordIncomeBtn">💵 记录个人缴费</button>
+                        <!-- 收入明细置于个人缴费面板正下方 -->
+                        <div class="panel-log-section">
+                            <div class="panel-log-title">💰 收入明细</div>
+                            <div class="log-list-compact" id="incomeLogList"><div class="empty-log">暂无缴费记录</div></div>
+                        </div>
+                    </div>
+                    <!-- 右侧面板：班级支出 + 支出明细 -->
+                    <div class="panel">
+                        <h3>📤 班级支出</h3>
+                        <div class="form-group"><label>支出金额 (¥)</label><input type="number" id="expenseAmount" step="0.01" placeholder="支出金额"></div>
+                        <div class="form-group"><label>支出详细说明</label><textarea id="expenseReason" rows="1" placeholder="例如：运动会物资"></textarea></div>
+                        <div class="form-group"><label>支出时间</label><input type="text" id="expenseTimeReadonly" readonly></div>
+                        <button class="submit-btn expense-btn" id="recordExpenseBtn">📌 确认支出并记录</button>
+                        <!-- 支出明细置于班级支出面板正下方 -->
+                        <div class="panel-log-section">
+                            <div class="panel-log-title">💸 支出明细 <span style="font-size:0.7rem; font-weight:normal;">(教师可删除)</span></div>
+                            <div class="log-list-compact" id="expenseLogList"><div class="empty-log">暂无支出记录</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="right-stats">
+                <div class="stat-card"><div class="stat-label">👩‍🎓 班级人数</div><div class="stat-number" id="totalStudents">0</div></div>
+                <div class="stat-card"><div class="stat-label">💰 总收入</div><div class="stat-number" id="totalIncomeVal">0.00</div></div>
+                <div class="stat-card"><div class="stat-label">📉 总支出</div><div class="stat-number" id="totalExpenseVal">0.00</div></div>
+                <div class="stat-card"><div class="stat-label">🏦 班费余额</div><div class="stat-number" id="balanceVal">0.00</div></div>
+                <div class="stat-card"><div class="stat-label">🎓 毕业返还</div><div class="stat-number" id="perReturnVal">0.00</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="versionBox" class="version-badge">加载中...</div>
+</div>
+<!-- 右侧固定日历窗口 -->
+<div class="calendar-container" id="calendarContainer">
+    <div class="calendar-header">
+        <button class="calendar-nav-btn" id="prevMonthBtn">‹</button>
+        <h3 id="calendarMonthTitle">2026年6月</h3>
+        <button class="calendar-nav-btn" id="nextMonthBtn">›</button>
+    </div>
+    
+    <div class="calendar-grid">
+        <div class="calendar-weekday">日</div>
+        <div class="calendar-weekday">一</div>
+        <div class="calendar-weekday">二</div>
+        <div class="calendar-weekday">三</div>
+        <div class="calendar-weekday">四</div>
+        <div class="calendar-weekday">五</div>
+        <div class="calendar-weekday">六</div>
+    </div>
+    
+    <div class="calendar-detail-panel" id="calendarDetailPanel">
+        <div class="calendar-detail-title">📅 选择日期查看明细</div>
+    </div>
+</div>
+<script>
+    // ========== 所有业务逻辑与原始版本完全一致，仅调整了渲染位置（收入/支出明细位于各自面板内部） ==========
+    let isAdmin = false;
+    let isAssistant = false;
+    // 从 localStorage 加载密码，如果不存在则使用默认值
+    window.ADMIN_PASSWORD = localStorage.getItem('banfei_admin_password') || "131214";
+    window.ASSISTANT_PASSWORD = localStorage.getItem('banfei_assistant_password') || "2661";
+    const ADMIN_PASSWORD = window.ADMIN_PASSWORD; // 保留兼容
+    const ASSISTANT_PASSWORD = window.ASSISTANT_PASSWORD; // 保留兼容
+    const DEEP_UNLOCK_PASSWORD = "6835";
+    
+    let actionLogs = [];
+    const LOG_STORAGE_KEY = 'banfei_action_logs_v2';
+    function addActionLog(operatorType, actionDesc, extraDetail = '') { 
+        const now = new Date();
+        const timeStr = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+        actionLogs.unshift({ timestamp: now.toISOString(), timeStr: timeStr, operator: operatorType, action: actionDesc, detail: extraDetail });
+        if(actionLogs.length > 500) actionLogs = actionLogs.slice(0,500);
+        localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(actionLogs));
+    }
+    function loadActionLogs() { try { const stored = localStorage.getItem(LOG_STORAGE_KEY); if(stored) actionLogs = JSON.parse(stored); else actionLogs = []; } catch(e) { actionLogs = []; } }
+    function clearAllLogs() { if(!isAdmin) { showToastMessage("只有教师可以清空操作日志", true); return false; } actionLogs = []; localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(actionLogs)); showToastMessage("✅ 操作日志已清空"); return true; }
+    function showActionLogModal() { 
+        const modalDiv = document.createElement('div'); modalDiv.className = 'modern-modal';
+        let logsHtml = `<div class="log-list-ultra" style="max-height:665px; min-height:665px;">`;
+        if(actionLogs.length === 0) logsHtml += `<div class="empty-log">暂无操作记录</div>`;
+        else { actionLogs.forEach(log => { logsHtml += `<div class="log-entry-compact"><div class="log-left"><span class="log-operator">${escapeHtml(log.operator)}</span><span class="log-action">${escapeHtml(log.action)}</span><div class="log-detail-compact">${escapeHtml(log.detail || '')}</div></div><div class="log-time-small">${escapeHtml(log.timeStr)}</div></div>`; }); }
+        logsHtml += `</div><div class="flex-btns" style="margin-top:12px;">`; if(isAdmin) logsHtml += `<button class="btn btn-danger" id="clearAllLogsBtn">🗑️ 一键清空日志</button>`; logsHtml += `<button class="btn btn-primary" id="closeLogsBtn">关闭</button></div>`;
+        modalDiv.innerHTML = `<div class="modal-card-modern" style="max-width:520px;"><h3 style="margin-bottom:12px;">📋 操作日志记录</h3>${logsHtml}</div>`;
+        document.body.appendChild(modalDiv); const close = () => modalDiv.remove(); modalDiv.addEventListener('click', (e) => { if(e.target === modalDiv) close(); }); document.getElementById('closeLogsBtn').onclick = close; if(isAdmin) { const clearBtn = document.getElementById('clearAllLogsBtn'); if(clearBtn) clearBtn.onclick = () => { clearAllLogs(); close(); showActionLogModal(); }; }
+    }
+    function isFullAdmin() { return isAdmin; }
+    function isAssistantMode() { return isAssistant && !isAdmin; }
+    function getCurrentOperatorName() { if(isFullAdmin()) return "教师"; if(isAssistantMode()) return "助手"; return "访客"; }
+    function requireEditPermission(actionName) { if(isFullAdmin()) return true; if(isAssistantMode()) { const allowed = ["新增学生", "一键缴费", "导出备份", "导入备份", "记录缴费", "记录支出", "导出数据", "导入备份文件"]; if(allowed.some(a=>actionName.includes(a))) return true; showToastMessage(`⛔ 助手权限不足：无法执行“${actionName}”操作`, true); return false; } showToastMessage(`⛔ 请先登录教师或助手账号`, true); return false; }
+    
+    let students = [], expenseRecords = [], incomeLedger = [];
+    let nextExpenseId = 1;
+    function getCurrentDateCode() { const now=new Date(); return `${now.getFullYear().toString().slice(-2)}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}`; }
+    let versionState = { major:8, minor:1, dateCode:getCurrentDateCode(), build:34, description:"" };
+    let versionChangelog = [
+    { versionString: "V8.1.260706.34", description: "支持修改密码后数据保存本地，跨平台恢复默认密码" },
+    { versionString: "V8.0.260706.33", description: "新增修改密码功能，支持双密码独立修改<br>支持密码的动态修改与持久化存储" },
+    { versionString: "V7.6.260603.32", description: "添加编辑版本时的验证逻辑及操作记录" },
+    { versionString: "V7.5.260602.31", description: "修改新增学生强制性要求" },
+    { versionString: "V7.4.260602.30", description: "调整日志和版本弹窗字体大小<br>修改默认缴费金额<br>操作日志加入密码输入错误记录" },
+    { versionString: "V7.3.260602.29", description: "日志详情嵌入原代码" },
+    { versionString: "V7.2.260602.28", description: "修复收支情况和日历视图不一致的问题" },
+    { versionString: "V7.1.260602.27", description: "调整主页面布局<br>调整详情卡片字体" },
+    { versionString: "V7.0.260602.26", description: "新增日历视图，在日历上显示收支情况<br>点击日历对应日期，下方显示收支详情" },
+    { versionString: "V6.1.260601.25", description: "调整页面视图和明细布局" },
+    { versionString: "V6.0.260601.24", description: "新增助手权限，双权限管理<br>新增操作日志功能<br>调整页面显示" },
+    { versionString: "V5.2.260528.23", description: "修复日期码不会自动更新的问题" },
+    { versionString: "V5.1.260520.22", description: "新增日期码安全系统，防止恶意篡改" },
+    { versionString: "V5.0.260518.21", description: "新增安全系统，增加管理员权限<br>调整页面布局" },
+    { versionString: "V4.2.260518.20", description: "修复了一些已知问题" },
+    { versionString: "V4.1.260518.19", description: "优化部分使用说明" },
+    { versionString: "V4.0.260518.18", description: "新增删除学生功能<br>优化对应删除弹窗" },
+    { versionString: "V3.4.260518.17", description: "优化删除明细弹窗页面显示" },
+    { versionString: "V3.3.260518.16", description: "调整导出文件格式" },
+    { versionString: "V3.2.260518.15", description: "调整新增单个学生弹窗高度和毕业重置弹窗高度" },
+    { versionString: "V3.1.260518.14", description: "删除学生信息卡片布局（学号/姓名/累计缴费/最近缴费时间）<br>流水调整在底部" },
+    { versionString: "V3.0.260518.13", description: "收入和支出流水移至底部<br>支持删除支出记录并同步更新总支出与余额" },
+    { versionString: "V2.6.260518.12", description: "版本日志保留原始换行格式<br>行间无空隙" },
+    { versionString: "V2.5.260518.11", description: "版本日志更紧凑" },
+    { versionString: "V2.4.260518.10", description: "日期码自动获取当前日期，版本号自动更新" },
+    { versionString: "V2.3.260518.9", description: "优化版本弹窗编辑界面，点击编辑后显示4个版本号输入框在一行" },
+    { versionString: "V2.2.260518.8", description: "优化毕业重置弹窗<br>增加清空并导出按钮<br>修复输入框高度一致性问题" },
+    { versionString: "V2.1.260518.7", description: "新增数据导入导出功能<br>解决跨位置数据丢失问题" },
+    { versionString: "V2.0.260517.6", description: "修复新增学生弹窗自动关闭问题<br>统一文本框高度左右对齐" },
+    { versionString: "V1.5.260517.5", description: "毕业重置彻底清空所有学生及缴费数据<br>优化弹窗自动收起" },
+    { versionString: "V1.4.260517.4", description: "移除演示按钮<br>优化弹窗交互<br>版本日志精简显示" },
+    { versionString: "V1.3.260517.3", description: "修复一键缴费功能<br>支持数据本地保存" },
+    { versionString: "V1.2.260517.2", description: "优化弹窗显示<br>优化版本信息" },
+    { versionString: "V1.1.260517.1", description: "新增一键缴费功能<br>新增返还功能<br>日期自动记录" },
+    { versionString: "V1.0.260517.0", description: "初始版本发布" }
+];
+    const STORAGE_KEYS = { STUDENTS: 'banfei_students_v12', EXPENSES: 'banfei_expenses_v12', INCOME_LEDGER: 'banfei_incomeLedger_v12', NEXT_EXPENSE_ID: 'banfei_nextExpenseId_v12', VERSION_STATE: 'banfei_versionState_v12', VERSION_CHANGELOG: 'banfei_changelog_v12' };
+    function persistAllData() { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students)); localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenseRecords)); localStorage.setItem(STORAGE_KEYS.INCOME_LEDGER, JSON.stringify(incomeLedger)); localStorage.setItem(STORAGE_KEYS.NEXT_EXPENSE_ID, nextExpenseId.toString()); localStorage.setItem(STORAGE_KEYS.VERSION_STATE, JSON.stringify(versionState)); localStorage.setItem(STORAGE_KEYS.VERSION_CHANGELOG, JSON.stringify(versionChangelog)); }
+    function loadPersistedData() { 
+    try { 
+        if(localStorage.getItem(STORAGE_KEYS.STUDENTS)) students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS)); 
+        if(localStorage.getItem(STORAGE_KEYS.EXPENSES)) expenseRecords = JSON.parse(localStorage.getItem(STORAGE_KEYS.EXPENSES)); 
+        if(localStorage.getItem(STORAGE_KEYS.INCOME_LEDGER)) incomeLedger = JSON.parse(localStorage.getItem(STORAGE_KEYS.INCOME_LEDGER)); 
+        if(localStorage.getItem(STORAGE_KEYS.NEXT_EXPENSE_ID)) nextExpenseId = parseInt(localStorage.getItem(STORAGE_KEYS.NEXT_EXPENSE_ID)); 
+        if(localStorage.getItem(STORAGE_KEYS.VERSION_STATE)) versionState = JSON.parse(localStorage.getItem(STORAGE_KEYS.VERSION_STATE)); 
+        // 不从 localStorage 读取日志，使用代码中定义的 versionChangelog
+    } catch(e) {} 
+    
+    if(!students) students = []; 
+    if(!expenseRecords) expenseRecords = []; 
+    if(!incomeLedger) incomeLedger = []; 
+    if(isNaN(nextExpenseId) || nextExpenseId<1) nextExpenseId = expenseRecords.length>0 ? Math.max(...expenseRecords.map(e=>e.id),0)+1 : 1; 
+    if(!versionChangelog) versionChangelog = []; 
+    const curVer = `V${versionState.major}.${versionState.minor}.${versionState.dateCode}.${versionState.build}`; 
+    if(!versionChangelog.some(v=>v.versionString===curVer)) versionChangelog.unshift({ versionString:curVer, description:versionState.description }); 
+    persistAllData(); 
+}
+    function recordIncomeWrapper(studentId, amount) { if(!requireEditPermission("记录缴费")) return false; const student = students.find(s=>s.studentId===studentId); if(!student) return false; if(recordIncomeImpl(studentId, amount)) { addActionLog(getCurrentOperatorName(), "记录个人缴费", `学生 ${student.name} 缴费 ¥${amount.toFixed(2)}`); return true; } return false; }
+    function recordExpenseWrapper(amount, reason) { if(!requireEditPermission("记录支出")) return false; if(recordExpenseImpl(amount, reason)) { addActionLog(getCurrentOperatorName(), "记录班级支出", `金额 ¥${amount.toFixed(2)} 事由: ${reason}`); return true; } return false; }
+    function recordIncomeImpl(studentId, amount) { if(!studentId){ showToastMessage('请选择学生',true); return false; } if(isNaN(amount)||amount<=0){ showToastMessage('金额须>0',true); return false; } const student = students.find(s=>s.studentId===studentId); if(!student) return false; const nowISO = new Date().toISOString(); student.totalPaid = (student.totalPaid||0)+amount; student.lastPaymentTime = nowISO; incomeLedger.push({ studentId, studentName: student.name, amount, time: nowISO }); renderAll(); showToastMessage(`✅ ${student.name} 缴费 ¥${amount.toFixed(2)}`); return true; }
+    function recordExpenseImpl(amount, reason) { if(isNaN(amount)||amount<=0){ showToastMessage('支出金额需>0',true); return false; } if(!reason.trim()){ showToastMessage('请填写事由',true); return false; } expenseRecords.push({ id: nextExpenseId++, amount, reason: reason.trim(), timestamp: new Date().toISOString() }); renderAll(); showToastMessage(`💸 支出 ¥${amount.toFixed(2)}`); return true; }
+    function deleteExpenseRecord(expenseId) { if(!isFullAdmin()) { showToastMessage("只有教师可以删除支出记录", true); return; } const idx = expenseRecords.findIndex(e => e.id === expenseId); if(idx !== -1) { const exp = expenseRecords[idx]; const modalDiv = document.createElement('div'); modalDiv.className = 'modern-delete-modal'; modalDiv.innerHTML = `<div class="delete-card"><h4>⚠️ 删除支出</h4><p>确定删除这笔支出吗？不可恢复。</p><div class="expense-detail">📌 ${escapeHtml(exp.reason)}<br>💸 -¥${exp.amount.toFixed(2)}<br>🕒 ${new Date(exp.timestamp).toLocaleString()}</div><div class="delete-actions"><button class="delete-cancel-btn" id="deleteCancelBtn">取消</button><button class="delete-confirm-btn" id="deleteConfirmBtn">确认删除</button></div></div>`; document.body.appendChild(modalDiv); const close = () => modalDiv.remove(); modalDiv.addEventListener('click', (e) => { if(e.target === modalDiv) close(); }); document.getElementById('deleteCancelBtn').onclick = close; document.getElementById('deleteConfirmBtn').onclick = () => { close(); expenseRecords.splice(idx,1); renderAll(); showToastMessage("支出已删除"); addActionLog("教师", "删除支出记录", `删除支出: ${exp.reason} ¥${exp.amount.toFixed(2)}`); }; } }
+    function renderAll() { updateStatsAndPerReturn(); populateStudentSelect(); renderIncomeLogs(); renderExpenseLogs(); persistAllData(); }
+    function updateStatsAndPerReturn() { const totalPaid = students.reduce((sum,s)=>sum+(s.totalPaid||0),0); const totalExp = expenseRecords.reduce((sum,e)=>sum+e.amount,0); const balance = totalPaid - totalExp; const perReturn = students.length>0 && balance>0 ? balance/students.length : 0; document.getElementById('totalStudents').innerText = students.length; document.getElementById('totalIncomeVal').innerText = totalPaid.toFixed(2); document.getElementById('totalExpenseVal').innerText = totalExp.toFixed(2); document.getElementById('balanceVal').innerText = balance.toFixed(2); document.getElementById('perReturnVal').innerHTML = `¥${perReturn.toFixed(2)}`; }
+    function renderIncomeLogs() { const container = document.getElementById('incomeLogList'); if(!container) return; if(incomeLedger.length===0) { container.innerHTML='<div class="empty-log">暂无缴费记录</div>'; return; } const sorted = [...incomeLedger].reverse(); container.innerHTML = sorted.map(item => `<div class="income-log-item"><div class="log-detail"><strong>${escapeHtml(item.studentName)}</strong> · ${new Date(item.time).toLocaleString()}</div><div class="log-amount">+¥${item.amount.toFixed(2)}</div></div>`).join(''); }
+    function renderExpenseLogs() { const container = document.getElementById('expenseLogList'); if(!container) return; if(expenseRecords.length===0) { container.innerHTML='<div class="empty-log">暂无支出记录</div>'; return; } const sorted = [...expenseRecords].reverse(); container.innerHTML = sorted.map(exp => `<div class="expense-log-item"><div class="log-detail"><div><strong>${escapeHtml(exp.reason)}</strong></div><div class="log-time">${new Date(exp.timestamp).toLocaleString()}</div></div><div class="log-amount">-¥${exp.amount.toFixed(2)}</div>${isFullAdmin() ? '<button class="delete-expense-btn" data-id="'+exp.id+'">❌</button>' : ''}</div>`).join(''); if(isFullAdmin()) document.querySelectorAll('.delete-expense-btn').forEach(btn => { btn.addEventListener('click', (e) => { e.stopPropagation(); deleteExpenseRecord(parseInt(btn.getAttribute('data-id'))); }); }); }
+    function populateStudentSelect() { const select = document.getElementById('incomeStudentSelect'); select.innerHTML = '<option value="">-- 选择学生 --</option>'; students.forEach(s => { const opt = document.createElement('option'); opt.value = s.studentId; opt.textContent = `${s.name} (${s.studentId})`; select.appendChild(opt); }); const editable = isFullAdmin() || isAssistantMode(); select.disabled = !editable; }
+    function showToastMessage(msg, isErr=false) { const toast = document.createElement('div'); toast.innerText = msg; toast.style.position='fixed'; toast.style.bottom='80px'; toast.style.left='50%'; toast.style.transform='translateX(-50%)'; toast.style.backgroundColor=isErr?'#b91c1c':'#166534'; toast.style.color='white'; toast.style.padding='10px 20px'; toast.style.borderRadius='40px'; toast.style.zIndex='9999'; document.body.appendChild(toast); setTimeout(()=>toast.remove(),2500); }
+    function escapeHtml(str) { return String(str||'').replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+    function setAutoTimeFields() { const now = new Date().toLocaleString(); if(document.getElementById('incomeTimeReadonly')) document.getElementById('incomeTimeReadonly').value = now; if(document.getElementById('expenseTimeReadonly')) document.getElementById('expenseTimeReadonly').value = now; }
+    function updateVersionDisplay() { document.getElementById('versionBox').innerText = `V${versionState.major}.${versionState.minor}.${versionState.dateCode}.${versionState.build}`; persistAllData(); }
+    function applyPermissionUI() { 
+        const teacherOnly = ["excelUpload", "graduateSettleBtn", "deleteStudentBtn"]; 
+        const allButtons = ["addStudentBtn", "oneKeyPayBtn", "graduateSettleBtn", "recordIncomeBtn", "recordExpenseBtn", "deleteStudentBtn", "excelUpload", "importExcelBackupBtn", "exportDataBtn"]; 
+        allButtons.forEach(btnId => { const el = document.getElementById(btnId); if(!el) return; let enable = false; if(isFullAdmin()) enable = true; else if(isAssistantMode() && ["addStudentBtn","oneKeyPayBtn","recordIncomeBtn","recordExpenseBtn","importExcelBackupBtn","exportDataBtn"].includes(btnId)) enable = true; if(teacherOnly.includes(btnId) && !isFullAdmin()) enable = false; if(enable) { el.classList.remove("btn-disabled"); el.disabled = false; if(el.tagName === 'LABEL') el.style.pointerEvents = 'auto'; } else { el.classList.add("btn-disabled"); el.disabled = true; if(el.tagName === 'LABEL') el.style.pointerEvents = 'none'; } }); 
+        const importLabel = document.getElementById("importStudentLabel"); if(importLabel) importLabel.style.opacity = isFullAdmin() ? "1" : "0.5"; 
+        const deleteBtn = document.getElementById("deleteStudentBtn"); if(deleteBtn) deleteBtn.disabled = !isFullAdmin();
+// 控制修改密码按钮显示
+const changePwdBtn = document.getElementById("changePasswordBtn");
+if (changePwdBtn) {
+    changePwdBtn.style.display = isFullAdmin() ? "inline-block" : "none";
+} 
+        const statusSpan = document.getElementById("authText"); const lockIconSpan = document.querySelector("#permissionStatus .lock-icon"); 
+        if(isFullAdmin()) { statusSpan.innerText = "👩‍🏫 教师模式 · 全部权限"; if(lockIconSpan) lockIconSpan.innerHTML = "🔓"; document.getElementById("unlockAdminBtn").style.display = "none"; document.getElementById("unlockAssistantBtn").style.display = "none"; document.getElementById("lockAdminBtn").style.display = "inline-block"; } 
+        else if(isAssistantMode()) { statusSpan.innerText = "🧑‍🏫 助手模式 · 可新增学生/缴费/支出/备份"; if(lockIconSpan) lockIconSpan.innerHTML = "🛡️"; document.getElementById("unlockAdminBtn").style.display = "inline-block"; document.getElementById("unlockAssistantBtn").style.display = "inline-block"; document.getElementById("lockAdminBtn").style.display = "inline-block"; } 
+        else { statusSpan.innerText = "访客模式 · 仅可查看/导出/版本"; if(lockIconSpan) lockIconSpan.innerHTML = "🔒"; document.getElementById("unlockAdminBtn").style.display = "inline-block"; document.getElementById("unlockAssistantBtn").style.display = "inline-block"; document.getElementById("lockAdminBtn").style.display = "none"; } 
+        const editable = isFullAdmin() || isAssistantMode(); const incomeAmt = document.getElementById("incomeAmount"), expenseAmt = document.getElementById("expenseAmount"), expenseReason = document.getElementById("expenseReason"), incomeSelect = document.getElementById("incomeStudentSelect"); 
+        if(incomeAmt) incomeAmt.disabled = !editable; if(expenseAmt) expenseAmt.disabled = !editable; if(expenseReason) expenseReason.disabled = !editable; if(incomeSelect) incomeSelect.disabled = !editable; 
+    }
+    function showAdminLoginModal(role) { 
+    const modalDiv = document.createElement('div'); modalDiv.className = 'modern-modal'; modalDiv.innerHTML = `<div class="modal-card-modern" style="max-width:380px;"><h3>${role === 'admin' ? '👩‍🏫 教师登录' : '🧑‍🏫 助手登录'}</h3><div class="form-group"><label>请输入${role === 'admin' ? '教师密码' : '助手密码'}</label><input type="password" id="rolePasswordInput" placeholder="密码"></div><div class="flex-btns"><button class="btn" id="cancelLoginBtn">取消</button><button class="btn btn-primary" id="confirmLoginBtn">解锁</button></div></div>`; 
+    document.body.appendChild(modalDiv); const closeModal = () => modalDiv.remove(); modalDiv.addEventListener('click', (e) => { if(e.target === modalDiv) closeModal(); }); document.getElementById('cancelLoginBtn').onclick = closeModal; document.getElementById('confirmLoginBtn').onclick = () => { 
+        const pwd = document.getElementById('rolePasswordInput').value; 
+        if(role === 'admin' && pwd === window.ADMIN_PASSWORD) { 
+            isAdmin = true; 
+            isAssistant = false; 
+            applyPermissionUI(); 
+            addActionLog("教师", "登录系统", "教师权限解锁成功"); 
+            showToastMessage("✅ 最高权限已解锁"); 
+            renderExpenseLogs(); 
+            closeModal(); 
+        } else if(role === 'assistant' && pwd === window.ASSISTANT_PASSWORD) { 
+            isAssistant = true; 
+            isAdmin = false; 
+            applyPermissionUI(); 
+            addActionLog("助手", "登录系统", "助手权限解锁成功"); 
+            showToastMessage("✅ 助手权限已解锁"); 
+            closeModal(); 
+        } else { 
+            // 密码错误时记录到操作日志
+            const roleName = role === 'admin' ? '教师' : '助手';
+            addActionLog("系统", "登录失败", `${roleName}登录：密码错误`); 
+            showToastMessage("❌ 密码错误", true); 
+            closeModal(); 
+        } 
+    }; 
+}
+function showAdminLoginModalForVersionEdit() {
+    const modalDiv = document.createElement('div');
+    modalDiv.className = 'modern-modal';
+
+    modalDiv.innerHTML = `
+        <div class="modal-card-modern" style="max-width:380px;">
+            <h3>🔐 版本编辑权限验证</h3>
+            <p style="margin-bottom:12px; color:#475569;">请选择身份并输入密码</p>
+            <div class="form-group">
+                <label>选择身份</label>
+                <select id="versionEditRole" style="padding:10px; border-radius:12px; width:100%;">
+                    <option value="assistant">🧑‍🏫 助手</option>
+                    <option value="admin">👩‍🏫 教师</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="versionEditPassword" placeholder="输入密码">
+            </div>
+            <div class="flex-btns">
+                <button class="btn" id="cancelVersionLoginBtn">取消</button>
+                <button class="btn btn-primary" id="confirmVersionLoginBtn">验证</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modalDiv);
+
+    const closeModal = () => modalDiv.remove();
+
+    modalDiv.addEventListener('click', e => {
+        if (e.target === modalDiv) closeModal();
+    });
+
+    document.getElementById('cancelVersionLoginBtn').onclick = () => {
+        addActionLog("系统", "编辑版本取消", "用户取消版本编辑登录");
+        closeModal();
+    };
+
+    document.getElementById('confirmVersionLoginBtn').onclick = () => {
+        const role = document.getElementById('versionEditRole').value;
+        const pwd = document.getElementById('versionEditPassword').value;
+
+        if (role === 'admin' && pwd === window.ADMIN_PASSWORD) {
+            isAdmin = true;
+            isAssistant = false;
+            applyPermissionUI();
+            addActionLog("教师", "编辑版本", "版本编辑权限验证成功（教师）");
+            showToastMessage("✅ 教师权限已解锁");
+            closeModal();
+            showVersionEditModal();
+        } else if (role === 'assistant' && pwd === window.ASSISTANT_PASSWORD) {
+            isAssistant = true;
+            isAdmin = false;
+            applyPermissionUI();
+            addActionLog("助手", "编辑版本", "版本编辑权限验证成功（助手）");
+            showToastMessage("✅ 助手权限已解锁");
+            closeModal();
+            showVersionEditModal();
+        } else {
+            addActionLog("系统", "编辑版本失败", `${role === 'admin' ? '教师' : '助手'}登录：密码错误`);
+            showToastMessage("❌ 密码错误", true);
+            closeModal();
+        }
+    };
+}
+    function lockAll() { if(isFullAdmin() || isAssistantMode()) addActionLog(getCurrentOperatorName(), "退出编辑", "锁定权限"); isAdmin = false; isAssistant = false; applyPermissionUI(); showToastMessage("🔒 已退出，仅可查看"); }
+// ========== 修改密码功能（支持教师/助手双密码，无需当前密码验证，默认助手密码） ==========
+function showChangePasswordModal() {
+    // 检查是否为教师登录
+    if (!isFullAdmin()) {
+        showToastMessage("只有教师可以修改密码", true);
+        return;
+    }
+
+    const modalDiv = document.createElement('div');
+    modalDiv.className = 'modern-modal';
+    modalDiv.innerHTML = `
+        <div class="password-modal-card">
+            <h3>🔑 修改密码</h3>
+            <div class="form-group">
+                <label>选择要修改的密码类型</label>
+                <select id="passwordTypeSelect" style="width:100%; padding:12px 14px; border-radius:12px; border:1.5px solid #e2e8f0; font-size:0.95rem; background:white;">
+                    <option value="assistant" selected>🧑‍🏫 助手密码</option>
+                    <option value="admin">👩‍🏫 教师密码</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label id="newPwdLabel">新助手密码</label>
+                <input type="password" id="newPwdInput" placeholder="请输入新助手密码（至少4位）">
+            </div>
+            <div class="form-group">
+                <label>确认新密码</label>
+                <input type="password" id="confirmPwdInput" placeholder="请再次输入新密码">
+            </div>
+            <div class="flex-btns">
+                <button class="btn" id="cancelPwdBtn">取消</button>
+                <button class="btn btn-primary" id="confirmPwdBtn">确认修改</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modalDiv);
+
+    const closeModal = () => modalDiv.remove();
+    modalDiv.addEventListener('click', (e) => {
+        if (e.target === modalDiv) closeModal();
+    });
+
+    // 切换密码类型时更新标签
+    document.getElementById('passwordTypeSelect').onchange = function() {
+        const type = this.value;
+        const newPwdLabel = document.getElementById('newPwdLabel');
+        const newPwdInput = document.getElementById('newPwdInput');
+        
+        if (type === 'admin') {
+            newPwdLabel.textContent = '新教师密码';
+            newPwdInput.placeholder = '请输入新教师密码（至少4位）';
+        } else {
+            newPwdLabel.textContent = '新助手密码';
+            newPwdInput.placeholder = '请输入新助手密码（至少4位）';
+        }
+        // 清空输入框
+        newPwdInput.value = '';
+        document.getElementById('confirmPwdInput').value = '';
+    };
+
+    document.getElementById('cancelPwdBtn').onclick = closeModal;
+
+    document.getElementById('confirmPwdBtn').onclick = function() {
+        const type = document.getElementById('passwordTypeSelect').value;
+        const newPwd = document.getElementById('newPwdInput').value;
+        const confirmPwd = document.getElementById('confirmPwdInput').value;
+        const typeName = type === 'admin' ? '教师' : '助手';
+
+        // 验证新密码（至少4位）
+        if (newPwd.length < 4) {
+            showToastMessage(`❌ 新${typeName}密码长度至少4位`, true);
+            return;
+        }
+
+        if (newPwd !== confirmPwd) {
+            showToastMessage("❌ 两次输入的新密码不一致", true);
+            return;
+        }
+
+        // 修改对应密码
+        if (type === 'admin') {
+            window.ADMIN_PASSWORD = newPwd;
+        } else {
+            window.ASSISTANT_PASSWORD = newPwd;
+        }
+
+        // 保存密码到 localStorage（新增）
+        localStorage.setItem('banfei_admin_password', window.ADMIN_PASSWORD);
+        localStorage.setItem('banfei_assistant_password', window.ASSISTANT_PASSWORD);
+
+        // 记录操作日志
+        addActionLog("教师", "修改密码", `${typeName}密码已修改`);
+
+        // 更新显示
+        showToastMessage(`✅ ${typeName}密码修改成功！`);
+
+        // 关闭弹窗
+        closeModal();
+    };
+}
+
+// 修改密码按钮事件
+document.getElementById('changePasswordBtn').onclick = showChangePasswordModal;
+
+    // 其余辅助函数（新增学生、一键缴费、导出导入、毕业重置、删除学生、版本管理等）均保持原始逻辑不变，限于篇幅不再重复但已完整包含于最终代码中
+    function showAddStudentModalWrapper() { if(!requireEditPermission("新增学生")) return; showAddStudentModalImpl(); addActionLog(getCurrentOperatorName(), "新增学生", "打开新增学生弹窗"); }
+    function showAddStudentModalImpl() { 
+    const modalDiv = document.createElement('div'); 
+    modalDiv.className='modern-modal'; 
+    modalDiv.innerHTML=`<div class="modal-card-modern modal-add-student"><h3>➕ 新增学生</h3><div class="form-group"><label>学号 <span style="color:#94a3b8; font-weight:normal;">(选填，不填则自动生成)</span></label><input type="text" id="newStudentId" placeholder="例:2024005 或留空自动生成"></div><div class="form-group"><label>姓名 <span style="color:#e53e3e;">*</span></label><input type="text" id="newStudentName" placeholder="例:张小凡"></div><div class="flex-btns"><button class="btn" id="cancelAddBtn">取消</button><button class="btn btn-primary" id="confirmAddBtn">确认添加</button></div></div>`; 
+    document.body.appendChild(modalDiv); 
+    const close=()=>modalDiv.remove(); 
+    modalDiv.addEventListener('click',e=>{if(e.target===modalDiv)close();}); 
+    document.getElementById('cancelAddBtn').onclick=close; 
+    document.getElementById('confirmAddBtn').onclick=()=>{ 
+        let id = document.getElementById('newStudentId').value.trim(); 
+        const name = document.getElementById('newStudentName').value.trim(); 
+        
+        // 姓名必填校验
+        if(!name){ 
+            showToastMessage('请填写学生姓名', true); 
+            return; 
+        }
+        
+        // 如果学号为空，自动生成一个
+        if(!id){
+            // 自动生成学号规则：当前时间戳后6位 + 随机4位数字
+            const timestamp = Date.now().toString().slice(-6);
+            const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            id = `A${timestamp}${randomNum}`;
+        }
+        
+        // 检查学号是否已存在（仅当用户手动填了学号时才检查重复，自动生成的不会重复）
+        if(students.find(s=>s.studentId===id)){
+            showToastMessage('学号已存在，请重新填写', true); 
+            return; 
+        }
+        
+        students.push({ studentId:id, name:name, totalPaid:0, lastPaymentTime:null }); 
+        close(); 
+        renderAll(); 
+        showToastMessage(`添加学生 ${name} 成功${id !== document.getElementById('newStudentId').value.trim() ? `（学号自动生成：${id}）` : ''}`); 
+        addActionLog(getCurrentOperatorName(), "新增学生", `添加学生 ${name} (${id})`); 
+    }; 
+}
+    function showOneKeyPayModalWrapper() { if(!requireEditPermission("一键缴费")) return; showOneKeyPayModalImpl(); }
+    function showOneKeyPayModalImpl() { if(students.length===0){showToastMessage('暂无学生',true);return;} const modalDiv = document.createElement('div'); modalDiv.className='modern-modal'; modalDiv.innerHTML=`<div class="modal-card-modern"><h3>💰 一键全班缴费</h3><div class="form-group"><label>每人金额 (¥)</label><input type="number" id="payAmountPer" step="0.01" value="10"></div><div class="flex-btns"><button class="btn" id="cancelPayBtn">取消</button><button class="btn btn-primary" id="confirmPayBtn">确认缴费</button></div></div>`; document.body.appendChild(modalDiv); const close=()=>modalDiv.remove(); modalDiv.addEventListener('click',e=>{if(e.target===modalDiv)close();}); document.getElementById('cancelPayBtn').onclick=close; document.getElementById('confirmPayBtn').onclick=()=>{ const amt=parseFloat(document.getElementById('payAmountPer').value); if(isNaN(amt)||amt<=0){showToastMessage('无效金额',true);return;} const now=new Date().toISOString(); students.forEach(s=>{ s.totalPaid=(s.totalPaid||0)+amt; s.lastPaymentTime=now; incomeLedger.push({ studentId:s.studentId, studentName:s.name, amount:amt, time:now }); }); renderAll(); showToastMessage(`全班每人缴费¥${amt.toFixed(2)}`); addActionLog(getCurrentOperatorName(), "一键缴费", `全班每人缴费¥${amt.toFixed(2)}，共${students.length}人`); close(); }; }
+    function exportAllDataWrapper() { if(!requireEditPermission("导出备份")) return; exportAllDataImpl(); addActionLog(getCurrentOperatorName(), "导出备份", "导出Excel备份文件"); }
+    function exportAllDataImpl() { const wb = XLSX.utils.book_new(); const stuSheet = XLSX.utils.json_to_sheet(students.map(s=>({"学号":s.studentId,"姓名":s.name,"已缴费总额(¥)":s.totalPaid||0,"最后缴费时间":s.lastPaymentTime?new Date(s.lastPaymentTime).toLocaleString():"无"}))); XLSX.utils.book_append_sheet(wb, stuSheet, "学生缴费记录"); const incSheet = XLSX.utils.json_to_sheet(incomeLedger.map(i=>({"学号":i.studentId,"姓名":i.studentName,"缴费金额(¥)":i.amount,"缴费时间":new Date(i.time).toLocaleString()}))); XLSX.utils.book_append_sheet(wb, incSheet, "收入流水明细"); const expSheet = XLSX.utils.json_to_sheet(expenseRecords.map(e=>({"序号":e.id,"支出金额(¥)":e.amount,"支出事由":e.reason,"支出时间":new Date(e.timestamp).toLocaleString()}))); XLSX.utils.book_append_sheet(wb, expSheet, "支出记录"); XLSX.writeFile(wb, `班费备份_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.xlsx`); showToastMessage("导出备份成功"); }
+    function importExcelBackupWrapper(file) { if(!requireEditPermission("导入备份")) return; importExcelBackupImpl(file); addActionLog(getCurrentOperatorName(), "导入备份", "导入历史备份数据"); }
+    function importExcelBackupImpl(file) { const reader = new FileReader(); reader.onload = function(e) { const wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'}); if(wb.SheetNames.includes("学生缴费记录")) { const sheet = wb.Sheets["学生缴费记录"]; const rows = XLSX.utils.sheet_to_json(sheet); students = rows.map(r=>({ studentId:String(r["学号"]||"").trim(), name:String(r["姓名"]||"").trim(), totalPaid:parseFloat(r["已缴费总额(¥)"])||0, lastPaymentTime: r["最后缴费时间"] && r["最后缴费时间"]!=="无"?new Date(r["最后缴费时间"]).toISOString():null })).filter(s=>s.studentId&&s.name); } if(wb.SheetNames.includes("收入流水明细")) { const sheet = wb.Sheets["收入流水明细"]; const rows = XLSX.utils.sheet_to_json(sheet); incomeLedger = rows.map(r=>({ studentId:String(r["学号"]), studentName:String(r["姓名"]), amount:parseFloat(r["缴费金额(¥)"])||0, time:new Date(r["缴费时间"]).toISOString() })).filter(l=>l.studentId); } if(wb.SheetNames.includes("支出记录")) { const sheet = wb.Sheets["支出记录"]; const rows = XLSX.utils.sheet_to_json(sheet); expenseRecords = rows.map(r=>({ id:parseInt(r["序号"])||0, amount:parseFloat(r["支出金额(¥)"])||0, reason:String(r["支出事由"]), timestamp:new Date(r["支出时间"]).toISOString() })).filter(e=>e.amount); nextExpenseId = expenseRecords.length>0?Math.max(...expenseRecords.map(e=>e.id),0)+1:1; } renderAll(); showToastMessage("导入完成"); }; reader.readAsArrayBuffer(file); }
+    function graduateResetWrapper() { if(!isFullAdmin()) { showToastMessage("毕业重置需要教师权限", true); return; } graduateResetImpl(); addActionLog("教师", "毕业重置", "清空所有学生、收支数据"); }
+    function graduateResetImpl() { const modalDiv=document.createElement('div'); modalDiv.className='modern-modal'; modalDiv.innerHTML=`<div class="modal-card-modern modal-graduate"><h3>🎓 毕业重置</h3><p style="margin:12px 0; background:#fee2e2; padding:12px; border-radius:20px;">⚠️ 永久删除所有数据</p><div class="graduate-btns"><button class="btn" id="cancelGraduateBtn">取消</button><button class="btn btn-danger" id="confirmGraduateBtn">确认清空</button><button class="btn btn-warning" id="exportAndClearBtn">清空并导出</button></div></div>`; document.body.appendChild(modalDiv); const close=()=>modalDiv.remove(); modalDiv.addEventListener('click',e=>{if(e.target===modalDiv)close();}); document.getElementById('cancelGraduateBtn').onclick=close; document.getElementById('confirmGraduateBtn').onclick=()=>{ students=[]; expenseRecords=[]; incomeLedger=[]; nextExpenseId=1; renderAll(); showToastMessage('已清空'); close(); }; document.getElementById('exportAndClearBtn').onclick=()=>{ exportAllDataImpl(); setTimeout(()=>{ students=[]; expenseRecords=[]; incomeLedger=[]; nextExpenseId=1; renderAll(); showToastMessage('已备份并清空'); close(); },300); }; }
+    async function deleteStudentWrapper(studentId) { if(!isFullAdmin()) { showToastMessage("删除学生需要教师权限", true); return false; } const student = students.find(s => s.studentId === studentId); if(!student) return false; const res = await deleteStudentImpl(studentId); if(res) addActionLog("教师", "删除学生", `删除学生 ${student.name} (${student.studentId})`); return res; }
+    async function deleteStudentImpl(studentId) { const student = students.find(s => s.studentId === studentId); if (!student) return false; return new Promise((resolve) => { const modalDiv = document.createElement('div'); modalDiv.className = 'modern-student-delete-modal'; modalDiv.innerHTML = `<div class="student-delete-card"><h4>🗑️ 删除学生</h4><div class="student-info">📌 ${escapeHtml(student.name)} (${student.studentId})</div><div class="warning-note">⚠️ 仅删除学生档案，历史缴费记录仍然保留在收入流水中。</div><p>删除后该学生的个人缴费总额将从班级统计中移除，班级总收入/余额将重新计算。</p><div class="delete-student-actions"><button class="delete-student-cancel" id="studentDelCancel">取消</button><button class="delete-student-confirm" id="studentDelConfirm">确认删除</button></div></div>`; document.body.appendChild(modalDiv); const closeModal = () => modalDiv.remove(); modalDiv.addEventListener('click', (e) => { if(e.target === modalDiv) closeModal(); }); document.getElementById('studentDelCancel').onclick = () => { closeModal(); resolve(false); }; document.getElementById('studentDelConfirm').onclick = () => { students = students.filter(s => s.studentId !== studentId); students.forEach(stu => { let paidSum = 0, lastTime = null; incomeLedger.filter(item => item.studentId === stu.studentId).forEach(item => { paidSum += item.amount; if(!lastTime || new Date(item.time) > new Date(lastTime)) lastTime = item.time; }); stu.totalPaid = paidSum; stu.lastPaymentTime = lastTime; }); renderAll(); showToastMessage(`✅ 已删除学生「${student.name}」，历史缴费记录已保留在流水中。`); closeModal(); resolve(true); }; }); }
+    function showVersionLogModal() { const modalDiv = document.createElement('div'); modalDiv.className = 'modern-modal'; let logHtml = `<div class="log-list-ultra">`; versionChangelog.forEach(log => { let descHtml = log.description.replace(/\n/g, '<br>'); logHtml += `<div class="log-item-ultra"><div class="log-version-ultra">${escapeHtml(log.versionString)}</div><div class="log-desc-ultra">${descHtml}</div></div>`; }); logHtml += `</div><div class="flex-btns"><button class="btn btn-primary" id="closeLogBtn">关闭</button><button class="btn" id="editVersionBtn">✏️ 编辑版本</button></div>`; modalDiv.innerHTML = `<div class="modal-card-modern"><h3>📌 版本更新日志</h3><div style="margin-bottom:12px; background:#eef2ff; padding:5px 12px; border-radius:10px;"><strong>当前版本：</strong> V${versionState.major}.${versionState.minor}.${versionState.dateCode}.${versionState.build}</div>${logHtml}</div>`; document.body.appendChild(modalDiv); const close = () => modalDiv.remove(); modalDiv.addEventListener('click', (e) => { if(e.target === modalDiv) close(); }); document.getElementById('closeLogBtn').onclick = close; 
+document.getElementById('editVersionBtn').onclick = () => {
+    close();
+
+    if (isFullAdmin()) {
+        addActionLog("教师", "编辑版本", "教师直接进入版本编辑");
+        showVersionEditModal();
+        return;
+    }
+
+    if (isAssistantMode()) {
+        addActionLog("助手", "编辑版本", "助手直接进入版本编辑");
+        showVersionEditModal();
+        return;
+    }
+
+    // 未登录才弹窗
+    addActionLog("系统", "尝试编辑版本", "未登录，打开版本编辑登录弹窗");
+    showAdminLoginModalForVersionEdit();
+};
+ }
+    function showVersionEditModal() { if(!isFullAdmin()) { showToastMessage("只有教师可以编辑版本", true); return; } const currentRealDate = getCurrentDateCode(); if (versionState.dateCode !== currentRealDate) { versionState.dateCode = currentRealDate; versionState.build = (versionState.build || 0) + 1; showToastMessage(`📅 日期码已自动更新为 ${currentRealDate}，版本号自动递增`, false); } const modalDiv = document.createElement('div'); modalDiv.className = 'modern-modal'; let logText = ''; versionChangelog.forEach(log => { logText += `${log.versionString}\n${log.description}\n\n`; }); modalDiv.innerHTML = `<div class="modal-card-modern"><h3>✏️ 版本编辑</h3><div class="version-edit-grid"><div class="version-edit-item"><label>主版本</label><input type="number" id="editMajor" value="${versionState.major}" min="0"></div><div class="version-edit-item"><label>次版本</label><input type="number" id="editMinor" value="${versionState.minor}" min="0"></div><div class="version-edit-item"><label>日期码</label><input type="text" id="editDateCode" value="${versionState.dateCode}" placeholder="点击解锁后可编辑" readonly style="background:#f0f3f9; cursor:pointer;" title="点击解锁后可编辑"></div><div class="version-edit-item"><label>次数号</label><input type="number" id="editBuild" value="${versionState.build}" min="0"></div></div><div style="margin-bottom:12px;"><label>版本描述</label><textarea id="editDescription" rows="2" style="width:100%; padding:8px; border-radius:12px;">${versionState.description}</textarea></div><div style="margin-bottom:12px;"><label>日志详情</label><textarea class="log-detail-edit" id="editLogDetails">${logText.trim()}</textarea></div><div class="flex-btns"><button class="btn" id="cancelEditBtn">取消</button><button class="btn btn-primary" id="saveEditBtn">保存</button></div></div>`; document.body.appendChild(modalDiv); const close = () => modalDiv.remove(); modalDiv.addEventListener('click', (e) => { if(e.target === modalDiv) close(); }); document.getElementById('cancelEditBtn').onclick = close; const dateCodeInput = document.getElementById('editDateCode'); let unlocked = false; dateCodeInput.addEventListener('click', (e) => { if(unlocked) { dateCodeInput.readOnly = false; dateCodeInput.style.background = "white"; dateCodeInput.style.cursor = "text"; showToastMessage("日期码现可编辑"); return; } requestDateCodeEditPermission((success) => { if(success) { unlocked = true; dateCodeInput.readOnly = false; dateCodeInput.style.background = "white"; dateCodeInput.style.cursor = "text"; showToastMessage("日期码现在可手动修改"); } else { showToastMessage("未获得日期码编辑权限，日期码不可编辑", true); } }); }); document.getElementById('saveEditBtn').onclick = () => { versionState.major = parseInt(document.getElementById('editMajor').value) || 0; versionState.minor = parseInt(document.getElementById('editMinor').value) || 0; let newDateCode = document.getElementById('editDateCode').value.trim(); if(newDateCode === "") newDateCode = getCurrentDateCode(); versionState.dateCode = newDateCode; versionState.build = parseInt(document.getElementById('editBuild').value) || 0; versionState.description = document.getElementById('editDescription').value.trim(); const newLogText = document.getElementById('editLogDetails').value.trim(); if (newLogText) { const lines = newLogText.split('\n'); const newLogs = []; for (let i = 0; i < lines.length;) { let ver = lines[i].trim(); if (ver && i+1 < lines.length) { let desc = ''; let j = i+1; while (j < lines.length && lines[j].trim() !== '') { desc += (desc ? '\n' : '') + lines[j]; j++; } newLogs.push({ versionString: ver, description: desc.trim() }); i = j + 1; } else { i++; } } if (newLogs.length) versionChangelog = newLogs; } const currentVer = `V${versionState.major}.${versionState.minor}.${versionState.dateCode}.${versionState.build}`; if (!versionChangelog.find(v => v.versionString === currentVer)) versionChangelog.unshift({ versionString: currentVer, description: versionState.description }); renderAll(); updateVersionDisplay(); close(); showToastMessage("版本已更新"); addActionLog("教师", "编辑版本", `更新版本至 ${currentVer}`); }; }
+    function requestDateCodeEditPermission(callback) { const modalDiv = document.createElement('div'); modalDiv.className = 'modern-modal'; modalDiv.innerHTML = `<div class="modal-card-modern" style="max-width:380px;"><h3>🔐 深度解锁日期码编辑</h3><div class="form-group"><label>请输入二次验证密码</label><input type="password" id="deepPwdInput" placeholder="输入解锁密码"></div><div class="flex-btns"><button class="btn" id="deepCancelBtn">取消</button><button class="btn btn-primary" id="deepConfirmBtn">验证</button></div></div>`; document.body.appendChild(modalDiv); const close = () => modalDiv.remove(); modalDiv.addEventListener('click', (e) => { if(e.target === modalDiv) close(); }); document.getElementById('deepCancelBtn').onclick = () => { close(); callback(false); }; document.getElementById('deepConfirmBtn').onclick = () => { const pwd = document.getElementById('deepPwdInput').value; if(pwd === DEEP_UNLOCK_PASSWORD) { showToastMessage("✅ 解锁成功，现可编辑日期码"); close(); callback(true); } else { showToastMessage("❌ 二次验证密码错误", true); close(); callback(false); } }; }
+    function importExcelDataImpl(file) { const reader = new FileReader(); reader.onload = function(e) { const wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'}); const sheet = wb.Sheets[wb.SheetNames[0]]; const rows = XLSX.utils.sheet_to_json(sheet); const newStudents = []; for(let row of rows){ let name = row['姓名']||row['name']||''; let stuId = row['学号']||row['studentId']||''; if(name && stuId) newStudents.push({ studentId:String(stuId).trim(), name:String(name).trim(), totalPaid:0, lastPaymentTime:null }); } if(newStudents.length) { students = newStudents; renderAll(); showToastMessage(`导入${students.length}名学生`); } else showToastMessage("未找到有效学生列",true); }; reader.readAsArrayBuffer(file); }
+    
+    document.getElementById('excelUpload').addEventListener('change', e=>{ if(e.target.files[0]) { if(!isFullAdmin()){ showToastMessage("导入学生需要教师权限",true); return; } importExcelDataImpl(e.target.files[0]); addActionLog("教师", "导入学生", "通过Excel批量导入学生"); e.target.value=''; } });
+    document.getElementById('addStudentBtn').onclick = showAddStudentModalWrapper;
+    document.getElementById('oneKeyPayBtn').onclick = showOneKeyPayModalWrapper;
+    document.getElementById('graduateSettleBtn').onclick = graduateResetWrapper;
+    document.getElementById('exportDataBtn').onclick = exportAllDataWrapper;
+    document.getElementById('importExcelBackupBtn').onclick = ()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.xlsx,.xls'; inp.onchange=e=>{ if(e.target.files[0]) importExcelBackupWrapper(e.target.files[0]); }; inp.click(); };
+    document.getElementById('recordIncomeBtn').onclick = ()=>{ const sid = document.getElementById('incomeStudentSelect').value; const amt = parseFloat(document.getElementById('incomeAmount').value); if(recordIncomeWrapper(sid, amt)) document.getElementById('incomeAmount').value=''; };
+    document.getElementById('recordExpenseBtn').onclick = ()=>{ const amt = parseFloat(document.getElementById('expenseAmount').value); const reason = document.getElementById('expenseReason').value; if(recordExpenseWrapper(amt, reason)){ document.getElementById('expenseAmount').value=''; document.getElementById('expenseReason').value=''; } };
+    document.getElementById('versionBox').onclick = showVersionLogModal;
+    document.getElementById('deleteStudentBtn').onclick = async () => { const selectedId = document.getElementById('incomeStudentSelect').value; if(!selectedId){ showToastMessage('请先选择一名学生', true); return; } await deleteStudentWrapper(selectedId); };
+    document.getElementById('unlockAssistantBtn').onclick = () => showAdminLoginModal('assistant');
+    document.getElementById('unlockAdminBtn').onclick = () => showAdminLoginModal('admin');
+    document.getElementById('lockAdminBtn').onclick = lockAll;
+    document.getElementById('viewActionLogBtn').onclick = showActionLogModal;
+    
+    loadPersistedData(); loadActionLogs(); renderAll(); setAutoTimeFields(); setInterval(setAutoTimeFields,1000); updateVersionDisplay(); applyPermissionUI();
+// ========== 右侧固定日历功能代码 ==========
+    
+    // 日历状态
+    let currentCalendarDate = new Date();
+    
+    // 初始化日历
+    function initCalendar() {
+        updateCalendar();
+        setupCalendarEvents();
+        // 默认显示今天的数据
+        setTimeout(() => {
+            showDateDetails(currentCalendarDate);
+        }, 100);
+    }
+    
+    // 更新日历显示
+    function updateCalendar() {
+        const container = document.getElementById('calendarContainer');
+        if (!container) return;
+        
+        const calendarGrid = container.querySelector('.calendar-grid');
+        if (!calendarGrid || calendarGrid.children.length < 7) return;
+        
+        // 更新月份标题
+        const monthTitle = document.getElementById('calendarMonthTitle');
+        if (monthTitle) {
+            monthTitle.textContent = `${currentCalendarDate.getFullYear()}年${currentCalendarDate.getMonth() + 1}月`;
+        }
+        
+        // 获取当月第一天和最后一天
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const firstDayOfWeek = firstDay.getDay();
+        
+        // 清空日期格子（保留前7个星期几标签）
+        const dateCells = Array.from(calendarGrid.children).slice(7);
+        dateCells.forEach(cell => cell.remove());
+        
+        // 添加上个月末尾的日期
+        const prevMonthLastDay = new Date(year, month, 0).getDate();
+        for (let i = 0; i < firstDayOfWeek; i++) {
+            const day = prevMonthLastDay - firstDayOfWeek + i + 1;
+            const dayElement = createCalendarDay(day, 'other-month');
+            calendarGrid.appendChild(dayElement);
+        }
+        
+        // 添加当月日期
+        const today = new Date();
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const dayElement = createCalendarDay(day, 'current-month');
+            
+            // 标记今天
+            if (date.getDate() === today.getDate() && 
+                date.getMonth() === today.getMonth() && 
+                date.getFullYear() === today.getFullYear()) {
+                dayElement.classList.add('today');
+            }
+            
+            // 检查当天是否有收入或支出
+            const hasIncome = hasIncomeOnDate(date);
+            const hasExpense = hasExpenseOnDate(date);
+            
+            if (hasIncome && hasExpense) {
+                dayElement.classList.add('has-both');
+            } else if (hasIncome) {
+                dayElement.classList.add('has-income');
+            } else if (hasExpense) {
+                dayElement.classList.add('has-expense');
+            }
+            
+            // 添加指示器
+            if (hasIncome) {
+                const incomeIndicator = document.createElement('div');
+                incomeIndicator.className = 'calendar-indicator income-indicator';
+                dayElement.appendChild(incomeIndicator);
+            }
+            
+            if (hasExpense) {
+                const expenseIndicator = document.createElement('div');
+                expenseIndicator.className = 'calendar-indicator expense-indicator';
+                dayElement.appendChild(expenseIndicator);
+            }
+            
+            // 添加点击事件
+            dayElement.addEventListener('click', () => showDateDetails(date));
+            
+            calendarGrid.appendChild(dayElement);
+        }
+        
+        // 添加下个月开始的日期
+        const totalCells = 42;
+        const currentCellCount = firstDayOfWeek + daysInMonth;
+        for (let i = 0; i < totalCells - currentCellCount; i++) {
+            const day = i + 1;
+            const dayElement = createCalendarDay(day, 'other-month');
+            calendarGrid.appendChild(dayElement);
+        }
+    }
+    
+    // 创建日历日期元素
+    function createCalendarDay(dayNumber, monthType) {
+        const dayElement = document.createElement('div');
+        dayElement.className = `calendar-day ${monthType}`;
+        dayElement.textContent = dayNumber;
+        dayElement.setAttribute('data-day', dayNumber);
+        return dayElement;
+    }
+    
+// 检查指定日期是否有收入（使用本地时区，解决日期偏移问题）
+function hasIncomeOnDate(date) {
+    // 将传入的日期转换为本地时区的日期字符串 YYYY-MM-DD
+    const localDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    
+    return incomeLedger.some(income => {
+        const incomeDate = new Date(income.time);
+        const incomeLocalDateStr = `${incomeDate.getFullYear()}-${String(incomeDate.getMonth() + 1).padStart(2, '0')}-${String(incomeDate.getDate()).padStart(2, '0')}`;
+        return incomeLocalDateStr === localDateStr;
+    });
+}
+    
+// 检查指定日期是否有支出（使用本地时区，解决日期偏移问题）
+function hasExpenseOnDate(date) {
+    const localDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    
+    return expenseRecords.some(expense => {
+        const expenseDate = new Date(expense.timestamp);
+        const expenseLocalDateStr = `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}-${String(expenseDate.getDate()).padStart(2, '0')}`;
+        return expenseLocalDateStr === localDateStr;
+    });
+}
+    
+// 显示日期明细（使用本地时区，解决日期偏移问题）
+function showDateDetails(date) {
+    const detailPanel = document.getElementById('calendarDetailPanel');
+    if (!detailPanel) return;
+    
+    // 使用本地时区日期字符串
+    const localDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const dateDisplay = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+    
+    // 获取当天的收入和支出（使用本地时区比较）
+    const dayIncome = incomeLedger.filter(income => {
+        const incomeDate = new Date(income.time);
+        const incomeLocalDateStr = `${incomeDate.getFullYear()}-${String(incomeDate.getMonth() + 1).padStart(2, '0')}-${String(incomeDate.getDate()).padStart(2, '0')}`;
+        return incomeLocalDateStr === localDateStr;
+    });
+    
+    const dayExpense = expenseRecords.filter(expense => {
+        const expenseDate = new Date(expense.timestamp);
+        const expenseLocalDateStr = `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}-${String(expenseDate.getDate()).padStart(2, '0')}`;
+        return expenseLocalDateStr === localDateStr;
+    });
+    
+    let html = `<div class="calendar-detail-title">📅 ${dateDisplay} 明细</div>`;
+    
+    if (dayIncome.length === 0 && dayExpense.length === 0) {
+        html += '<div style="text-align:center; color:#94a3b8; padding:20px; font-size:0.85rem;">当天无收支记录</div>';
+    } else {
+        // 显示收入
+        if (dayIncome.length > 0) {
+            const totalIncome = dayIncome.reduce((sum, item) => sum + item.amount, 0);
+            html += `<div style="font-size:0.8rem; color:#047857; margin-bottom:8px; font-weight:600;">收入总计: ¥${totalIncome.toFixed(2)}</div>`;
+            
+            dayIncome.forEach(income => {
+                const time = new Date(income.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                html += `
+                    <div class="calendar-detail-item calendar-income-item">
+                        <div>
+                            <strong>${income.studentName}</strong>
+                            <div style="font-size:0.7rem; color:#64748b;">${time}</div>
+                        </div>
+                        <div class="calendar-detail-amount" style="color:#10b981;">+¥${income.amount.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+        }
+        
+        // 显示支出
+        if (dayExpense.length > 0) {
+            const totalExpense = dayExpense.reduce((sum, item) => sum + item.amount, 0);
+            html += `<div style="font-size:0.8rem; color:#b91c1c; margin:${dayIncome.length>0?'12px 0 8px':'8px 0'}; font-weight:600;">支出总计: ¥${totalExpense.toFixed(2)}</div>`;
+            
+            dayExpense.forEach(expense => {
+                const time = new Date(expense.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                html += `
+                    <div class="calendar-detail-item calendar-expense-item">
+                        <div>
+                            <strong>${expense.reason}</strong>
+                            <div style="font-size:0.7rem; color:#64748b;">${time}</div>
+                        </div>
+                        <div class="calendar-detail-amount" style="color:#ef4444;">-¥${expense.amount.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+        }
+        
+        // 显示净收支
+        const totalIncome = dayIncome.reduce((sum, item) => sum + item.amount, 0);
+        const totalExpense = dayExpense.reduce((sum, item) => sum + item.amount, 0);
+        const netAmount = totalIncome - totalExpense;
+        const netColor = netAmount >= 0 ? '#10b981' : '#ef4444';
+        
+        html += `
+            <div style="margin-top:12px; padding-top:12px; border-top:1px solid #e2e8f0; font-size:0.85rem; font-weight:600; text-align:center;">
+                当日净收支: <span style="color:${netColor}">${netAmount >= 0 ? '+' : ''}¥${netAmount.toFixed(2)}</span>
+            </div>
+        `;
+    }
+    
+    detailPanel.innerHTML = html;
+}
+    
+    // 设置日历事件
+    function setupCalendarEvents() {
+        // 月份导航
+        const prevMonthBtn = document.getElementById('prevMonthBtn');
+        const nextMonthBtn = document.getElementById('nextMonthBtn');
+        
+        if (prevMonthBtn) {
+            prevMonthBtn.addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+                updateCalendar();
+            });
+        }
+        
+        if (nextMonthBtn) {
+            nextMonthBtn.addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+                updateCalendar();
+            });
+        }
+    }
+    
+    // 在数据更新时刷新日历
+    function refreshCalendar() {
+        updateCalendar();
+    }
+    
+    // 修改现有的renderAll函数，添加日历刷新
+    const originalRenderAll = renderAll;
+    renderAll = function() {
+        originalRenderAll();
+        refreshCalendar();
+    };
+    
+    // 在页面加载完成后初始化日历
+    document.addEventListener('DOMContentLoaded', function() {
+        // 等待页面完全加载
+        setTimeout(initCalendar, 100);
+    });
+</script>
+</body>
+</html>
